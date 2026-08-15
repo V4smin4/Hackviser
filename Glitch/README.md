@@ -1,92 +1,73 @@
-🛡️ Glitch — Hackviser Write-up
+Glitch — Hackviser Write-up
 
-«Hackviser Warmup Challenge — Web Security & Privilege Escalation»
-
----
-
-📌 Challenge Information
-
-Property| Details
-🏴 Platform| Hackviser
-🎯 Challenge| Glitch
-📊 Difficulty| Medium
-🌐 Category| Web Security / Privilege Escalation
-⭐ Points| 43
-🐧 Target OS| Linux
+«Hackviser Warmup Challenge | Web Security | Privilege Escalation»
 
 ---
 
-🎯 Overview
+Challenge Information
 
-Glitch is a Hackviser warmup machine focused on identifying an outdated web server, obtaining initial access through a known vulnerability, and investigating the target for a local privilege-escalation opportunity.
-
-The challenge demonstrates an important real-world attack chain:
-
-Service Enumeration
-        ↓
-Outdated Web Server
-        ↓
-Known Vulnerability
-        ↓
-Initial Access
-        ↓
-Local Enumeration
-        ↓
-Kernel Vulnerability
-        ↓
-Privilege Escalation
-        ↓
-Root Access
+Field| Details
+Platform| Hackviser
+Challenge| Glitch
+Difficulty| Medium
+Category| Web Security / Privilege Escalation
+Points| 43
+Target OS| Linux
 
 ---
 
-🔎 1. Information Gathering
+Overview
 
-The first step was identifying the services exposed by the target.
+Glitch is a Hackviser warmup challenge focused on identifying an outdated web server, obtaining initial access through a known vulnerability, and investigating the target system for a privilege-escalation opportunity.
 
-Nmap Scan
+The challenge demonstrates how multiple vulnerabilities can be chained together:
+
+Outdated Web Service → Remote Code Execution → Initial Access → Kernel Vulnerability → Privilege Escalation → Root
+
+---
+
+1. Information Gathering
+
+The first step was to enumerate the target and identify exposed services.
+
+Nmap
 
 nmap -sV goldnertech.hv
 
-Scan Results
+Results
 
 Port| State| Service| Version
-"22/tcp"| open| SSH| OpenSSH 8.4p1 Debian
-"80/tcp"| open| HTTP| Nostromo 1.9.6
+"22/tcp"| Open| SSH| OpenSSH 8.4p1 Debian
+"80/tcp"| Open| HTTP| Nostromo 1.9.6
 
-The most interesting service was:
+The most interesting service was the HTTP server running:
 
-80/tcp → HTTP → Nostromo 1.9.6
+Nostromo 1.9.6
 
-The outdated Nostromo 1.9.6 version became the primary focus for vulnerability research.
+Because the version was outdated, vulnerability research was performed against it.
 
 ---
 
-🔐 2. Vulnerability Identification
+2. Vulnerability Identification
 
-Researching the identified Nostromo version revealed a known vulnerability:
+Research into Nostromo 1.9.6 revealed a known vulnerability:
 
 CVE-2019-16278
 
-CVE-2019-16278 affects vulnerable versions of the Nostromo web server and can lead to remote command execution.
-
-Vulnerability Summary
-
-Item| Details
+Property| Information
 Software| Nostromo
 Version| 1.9.6
 CVE| CVE-2019-16278
-Impact| Remote Command Execution
-Attack Type| Remote
-Initial Access| Web Service
+Impact| Remote Code Execution
+Attack Vector| HTTP
 
-The vulnerable HTTP service was therefore investigated as the likely initial attack vector.
+The vulnerability provided a potential path to obtain initial access to the target.
 
 ---
 
-💻 3. Initial Access
+3. Initial Access
 
-Metasploit Framework was used to search for an appropriate module related to the identified service.
+Metasploit Framework was used to search for an exploit related to the identified Nostromo version.
 
 msfconsole
 
@@ -94,216 +75,195 @@ Then:
 
 search nostromo
 
-The relevant module was identified as:
+The relevant module was:
 
 exploit/multi/http/nostromo_code_exec
 
-After configuring the module for the Hackviser lab target, the vulnerability was successfully exploited and command execution was obtained.
+The module was configured for the Hackviser lab target and successfully provided command execution.
 
-Initial User
+Initial Access
+
+The obtained shell was running as:
 
 www-data
 
-This confirmed that the initial access was obtained with a low-privileged web-server account.
+This confirmed successful initial access with a low-privileged web-server account.
 
 ---
 
-🧭 4. Post-Exploitation Enumeration
+4. Post-Exploitation Enumeration
 
-After obtaining the initial shell, the next step was understanding the target environment.
+After obtaining the initial shell, the next step was to enumerate the target system.
 
 Check Current User
 
 whoami
 
-Result:
+Output:
 
 www-data
 
-Check System Information
+Check Kernel Information
 
 uname -a
 
-The system was running a Linux kernel version associated with a known privilege-escalation vulnerability.
+The output revealed a Linux kernel version that required further vulnerability research.
 
-This shifted the investigation from initial access to local privilege escalation.
+This indicated that the next stage of the challenge was likely local privilege escalation.
 
 ---
 
-⚡ 5. Privilege Escalation
+5. Privilege Escalation
 
-An attempt was made to access sensitive system files:
+An attempt was made to access the system's password-hash file:
 
 cat /etc/shadow
 
-The operation was denied because the current account did not have sufficient privileges.
+The operation was denied because the current user did not have sufficient privileges.
 
-This confirmed that additional privilege escalation was required.
+Further investigation of the Linux kernel version revealed a known vulnerability:
 
----
+CVE-2022-0847 — Dirty Pipe
 
-🧨 Kernel Vulnerability — Dirty Pipe
+Dirty Pipe is a Linux kernel vulnerability that can allow an unprivileged local user to modify data associated with normally read-only files on affected systems.
 
-The identified kernel version was investigated for known vulnerabilities.
-
-The system was found to be associated with:
-
-«CVE-2022-0847 — Dirty Pipe»
-
-Dirty Pipe is a Linux kernel vulnerability that can allow an unprivileged local user to modify data associated with normally read-only files on vulnerable systems.
-
-In the Hackviser lab environment, this vulnerability provided the privilege-escalation path.
+Within the Hackviser lab environment, the vulnerable kernel provided the privilege-escalation path.
 
 ---
 
-👑 6. Root Access
+6. Root Access
 
-After completing the privilege-escalation stage, the current user was verified again.
+After completing the privilege-escalation stage, the current user was checked again:
 
 whoami
 
-Result:
+Output:
 
 root
 
-✅ Root access successfully obtained.
+«Root access successfully obtained.»
 
-This demonstrated a complete compromise of the target from the initial exposed web service.
-
----
-
-🔗 7. Attack Chain
-
-The complete attack path can be summarized as follows:
-
-┌──────────────────────────────┐
-│        Nmap Enumeration      │
-└──────────────┬───────────────┘
-               ↓
-┌──────────────────────────────┐
-│    Nostromo 1.9.6 Detected   │
-└──────────────┬───────────────┘
-               ↓
-┌──────────────────────────────┐
-│       CVE-2019-16278         │
-│       Remote Code Execution  │
-└──────────────┬───────────────┘
-               ↓
-┌──────────────────────────────┐
-│       Initial Access         │
-│          www-data            │
-└──────────────┬───────────────┘
-               ↓
-┌──────────────────────────────┐
-│     Kernel Enumeration       │
-└──────────────┬───────────────┘
-               ↓
-┌──────────────────────────────┐
-│       CVE-2022-0847         │
-│        Dirty Pipe            │
-└──────────────┬───────────────┘
-               ↓
-┌──────────────────────────────┐
-│        Privilege Escalation  │
-└──────────────┬───────────────┘
-               ↓
-┌──────────────────────────────┐
-│          ROOT ACCESS         │
-└──────────────────────────────┘
+This confirmed complete compromise of the target system.
 
 ---
 
-📈 8. Attack Summary
+7. Attack Chain
+
+The complete attack path can be visualized as follows:
+
+flowchart TD
+    A[Nmap Enumeration] --> B[Nostromo 1.9.6]
+    B --> C[CVE-2019-16278]
+    C --> D[Remote Code Execution]
+    D --> E[Initial Access: www-data]
+    E --> F[Kernel Enumeration]
+    F --> G[CVE-2022-0847]
+    G --> H[Dirty Pipe]
+    H --> I[Privilege Escalation]
+    I --> J[Root Access]
+
+---
+
+8. Attack Summary
 
 Stage| Technique| Result
-1️⃣| Service Enumeration| Identified HTTP and SSH
-2️⃣| Version Detection| Found Nostromo 1.9.6
-3️⃣| Vulnerability Research| Identified CVE-2019-16278
-4️⃣| Initial Access| Obtained "www-data"
-5️⃣| System Enumeration| Identified vulnerable kernel
-6️⃣| Privilege Escalation| Exploited Dirty Pipe in the lab
-7️⃣| Verification| Obtained "root"
+1| Service Enumeration| HTTP and SSH identified
+2| Version Detection| Nostromo 1.9.6 identified
+3| Vulnerability Research| CVE-2019-16278 identified
+4| Initial Access| "www-data" shell obtained
+5| System Enumeration| Vulnerable kernel identified
+6| Vulnerability Research| CVE-2022-0847 identified
+7| Privilege Escalation| Dirty Pipe used in the lab
+8| Verification| "root" access obtained
 
 ---
 
-💥 Impact
+9. Impact
 
-The combination of an outdated web server and an unpatched Linux kernel resulted in full system compromise.
+The attack chain resulted in full system compromise.
 
-An attacker could move from:
+An attacker was able to move from an exposed vulnerable web service to a low-privileged shell and then escalate privileges to "root".
 
-Unauthenticated Web Access
-        ↓
-Remote Command Execution
-        ↓
-Low-Privilege Shell
-        ↓
-Kernel Privilege Escalation
-        ↓
-Root
+Attack Path
 
-Once root privileges are obtained, the attacker effectively has complete control over the operating system and its accessible data.
+Exposed Web Service
+        ↓
+Nostromo 1.9.6
+        ↓
+CVE-2019-16278
+        ↓
+Remote Code Execution
+        ↓
+www-data
+        ↓
+Vulnerable Linux Kernel
+        ↓
+CVE-2022-0847
+        ↓
+Privilege Escalation
+        ↓
+root
+
+Once root privileges are obtained, the attacker has administrative control over the operating system and its accessible resources.
 
 ---
 
-🛡️ 9. Defensive Recommendations
+10. Defensive Recommendations
 
-The attack chain could be mitigated through several security controls:
+Keep Software Updated
 
-🔹 Keep Services Updated
+Upgrade outdated web servers and remove unsupported versions from production environments.
 
-Upgrade or replace outdated versions of web servers and other exposed services.
+Patch Linux Kernels
 
-🔹 Patch the Operating System
+Apply security updates regularly to protect against known kernel vulnerabilities.
 
-Apply Linux kernel security updates regularly to prevent exploitation of known vulnerabilities.
+Minimize Attack Surface
 
-🔹 Minimize Exposed Services
+Only expose services that are required and restrict unnecessary network access.
 
-Only expose services that are required and restrict administrative services such as SSH where possible.
+Apply Least Privilege
 
-🔹 Least Privilege
+Web applications and services should run with only the permissions they actually require.
 
-Web applications should operate with the minimum permissions necessary.
+Continuous Vulnerability Management
 
-🔹 Continuous Vulnerability Management
-
-Regularly scan infrastructure to identify outdated software and known CVEs.
+Regular vulnerability scanning and patch management can help identify vulnerable services before they are exploited.
 
 ---
 
-🧠 10. Key Takeaways
+11. Key Takeaways
 
-- 🔍 Service enumeration is an essential first step in a security assessment.
-- 🌐 Version information can reveal vulnerable software.
-- 🐧 Initial access does not necessarily mean full system compromise.
-- ⚡ Local enumeration can reveal privilege-escalation opportunities.
-- 🔐 Kernel patching is critical for Linux systems.
-- 🛡️ Multiple vulnerabilities can be chained together to create a much larger security impact.
+- Service enumeration is an essential first step during a security assessment.
+- Software version information can reveal potential attack vectors.
+- Initial access does not necessarily provide administrative privileges.
+- Local system enumeration can reveal privilege-escalation opportunities.
+- Kernel vulnerabilities can turn a low-privileged foothold into full system compromise.
+- Keeping operating systems and exposed services patched is critical.
 
 ---
 
-🧰 Tools Used
+12. Tools Used
 
 Tool| Purpose
-🔎 Nmap| Service and version enumeration
-💥 Metasploit Framework| Vulnerability research and lab exploitation
-🐧 Linux CLI| System enumeration
-🔬 CVE Research| Vulnerability identification
+Nmap| Service and version enumeration
+Metasploit Framework| Vulnerability research and lab exploitation
+Linux CLI| System and privilege enumeration
+CVE Research| Vulnerability identification
 
 ---
 
-📝 Conclusion
+13. Conclusion
 
 The Glitch challenge demonstrated a realistic cybersecurity attack chain beginning with reconnaissance and service enumeration, followed by exploitation of an outdated web service and finally local privilege escalation through a vulnerable Linux kernel.
 
-The main lesson is that security must be approached as a complete process rather than focusing on a single vulnerability.
+The main lesson is that vulnerabilities should not be viewed in isolation.
 
-«One vulnerable service can provide the initial foothold, while an unpatched operating system can turn that foothold into complete system compromise.»
+A vulnerable exposed service can provide the initial foothold, while an unpatched operating system can turn that foothold into complete system compromise.
 
 ---
 
-📚 References
+References
 
 - CVE-2019-16278 — Nostromo vulnerability
 - CVE-2022-0847 — Dirty Pipe
@@ -311,8 +271,8 @@ The main lesson is that security must be approached as a complete process rather
 
 ---
 
-👩‍💻 Write-up Author
+Author
 
 V4smin4
 
-Cybersecurity • CTF • Web Security • Linux
+"Cybersecurity • CTF • Web Security • Linux"
